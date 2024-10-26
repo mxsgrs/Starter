@@ -1,6 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
+using Starter.Application;
+using Starter.Domain.Authentication;
+using Starter.Infrastructure.Persistance;
 
 namespace Starter.WebApi.UnitTests.Facts.Fixtures;
 
@@ -21,18 +24,18 @@ public class SharedFixture
     {
         public UserClaims UserClaims { get; set; } = new()
         {
-            UserCredentialsId = 1
+            UserId = Guid.NewGuid()
         };
     }
 
-    public static StarterContext CreateDatabaseContext()
+    public static StarterDbContext CreateDatabaseContext()
     {
-        DbContextOptions<StarterContext> options = new DbContextOptionsBuilder<StarterContext>()
+        DbContextOptions<StarterDbContext> options = new DbContextOptionsBuilder<StarterDbContext>()
             .ConfigureWarnings(warning => warning.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
 
-        return new StarterContext(options);
+        return new StarterDbContext(options);
     }
 
     public static string ReadLocalJson(string relativePath)

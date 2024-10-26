@@ -2,65 +2,57 @@
 
 public class AuthenticationControllerTests
 {
+    private readonly Mock<IJwtService> _jwtServiceMock;
+    private readonly AuthenticationController _authenticationController;
+
+    public AuthenticationControllerTests()
+    {
+        _jwtServiceMock = new Mock<IJwtService>();
+        _authenticationController = new AuthenticationController(_jwtServiceMock.Object);
+    }
+
     [Fact]
-    public async Task CreateJwtBearer_ShouldReturnOk_WhenLoginIsSuccessful()
+    public async Task Token_ShouldReturnOkResult_WhenTokenIsCreated()
     {
         // Arrange
-        HashedLoginRequest hashedLoginRequest = new()
+        HashedLoginRequest loginRequest = new()
         {
             EmailAddress = "test@example.com",
             HashedPassword = "hashedpassword"
         };
 
-        LoginResponse loginResponse = new()
+        LoginResponse expectedResponse = new()
         {
-            AccessToken = "token"
+            AccessToken = "sample.jwt.token"
         };
 
-        Result<LoginResponse> result = Result.Ok(loginResponse);
-
-        Mock<IAuthenticationService> mockAuthService = new();
-        mockAuthService
-            .Setup(s => s.CreateJwtBearer(hashedLoginRequest))
-            .ReturnsAsync(result);
-
-        Mock<IMapper> mapper = new();
-        AuthenticationController controller = new(mockAuthService.Object, mapper.Object);
+        _jwtServiceMock.Setup(s => s.CreateToken(It.IsAny<HashedLoginRequest>())).ReturnsAsync(expectedResponse);
 
         // Act
-        IActionResult actionResult = await controller.CreateJwtBearer(hashedLoginRequest);
+        var result = await _authenticationController.Token(loginRequest);
 
         // Assert
-        OkObjectResult okResult = Assert.IsType<OkObjectResult>(actionResult);
-        Assert.Equal(result.Value, okResult.Value);
+        OkObjectResult okResult = Assert.IsType<OkObjectResult>(result);
+        LoginResponse returnedResponse = Assert.IsType<LoginResponse>(okResult.Value);
+        Assert.Equal(expectedResponse.AccessToken, returnedResponse.AccessToken);
+        _jwtServiceMock.Verify(s => s.CreateToken(It.Is<HashedLoginRequest>(req => req == loginRequest)), Times.Once);
     }
 
     [Fact]
-    public async Task CreateJwtBearer_ShouldReturnUnauthorized_WhenLoginFails()
+    public async Task Token_ShouldReturnUnauthorized_WhenLoginFails()
     {
         // Arrange
-        HashedLoginRequest hashedLoginRequest = new()
+        HashedLoginRequest loginRequest = new()
         {
             EmailAddress = "test@example.com",
             HashedPassword = "wrongpassword"
         };
 
-        Result<LoginResponse> result = Result.Fail("Invalid credentials");
+        _jwtServiceMock.Setup(s => s.CreateToken(It.IsAny<HashedLoginRequest>()))
+                       .ThrowsAsync(new UnauthorizedException());
 
-        Mock<IAuthenticationService> mockAuthService = new();
-        mockAuthService
-            .Setup(s => s.CreateJwtBearer(hashedLoginRequest))
-            .ReturnsAsync(result);
-
-        Mock<IMapper> mapper = new();
-        AuthenticationController controller = new(mockAuthService.Object, mapper.Object);
-
-        // Act
-        IActionResult actionResult = await controller.CreateJwtBearer(hashedLoginRequest);
-
-        // Assert
-        BadRequestObjectResult badRequestResult = Assert.IsType<BadRequestObjectResult>(actionResult);
-        List<IError> errorList = Assert.IsType<List<IError>>(badRequestResult.Value);
-        Assert.Equal(result.Errors[0].Message, errorList[0].Message);
+        // Act & Assert
+        UnauthorizedException exception = await Assert.ThrowsAsync<UnauthorizedException>(() => _authenticationController.Token(loginRequest));
+        _jwtServiceMock.Verify(s => s.CreateToken(It.Is<HashedLoginRequest>(req => req == loginRequest)), Times.Once);
     }
 }

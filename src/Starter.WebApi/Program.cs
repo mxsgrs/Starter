@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc.ApplicationModels;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
 using System.Reflection;
 using System.Text;
 
@@ -20,16 +19,15 @@ builder.Configuration.AddJsonFile($"appsettings.{configurationName}.json");
 
 // Read database connection string from application settings
 string connectionString = builder.Configuration.GetConnectionString("SqlServer")
-    ?? throw new Exception("Connection string is missing");
+    ?? throw new Exception("Connection string for SQL Server is missing");
 
 // Register database context as a service
 // Connect to database with connection string
-builder.Services.AddDbContext<StarterContext>(options =>
+builder.Services.AddDbContext<StarterDbContext>(options =>
     options.UseSqlServer(connectionString));
 
 // AutoMapper for database models and DTOs mapping
-Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
-builder.Services.AddAutoMapper(assemblies);
+builder.Services.AddAutoMapper(typeof(UserMapping));
 
 // Add controllers and serialization
 builder.Services.AddControllers(options =>
@@ -70,8 +68,10 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddAuthentication()
     .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
     {
-        Jwt jwt = builder.Configuration.GetRequiredSection("Jwt").Get<Jwt>()
-            ?? throw new Exception("JWT settings are not configured");
+        JsonWebTokenParameters jwt = builder.Configuration
+            .GetRequiredSection("JsonWebTokenParameters")
+            .Get<JsonWebTokenParameters>()
+                ?? throw new Exception("JWT settings are not configured");
 
         byte[] encodedKey = Encoding.ASCII.GetBytes(jwt.Key);
         SymmetricSecurityKey symmetricSecurityKey = new(encodedKey);
@@ -84,39 +84,23 @@ builder.Services.AddAuthentication()
         };
     });
 
-// Read version number from application settings
-string version = builder.Configuration.GetValue<string>("Version")
-    ?? throw new Exception("Version number is missing");
+builder.AddCustomSwaggerGen();
 
-builder.Services.AddSwaggerGen(options =>
-{
-    options.SwaggerDoc(version, new OpenApiInfo
-    {
-        Version = version,
-        Title = "Starter.WebApi",
-        Description = "Get your starter web API."
-    });
-});
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+builder.Services.AddProblemDetails();
 
 WebApplication app = builder.Build();
 
-app.UseSwagger(options =>
-{
-    options.RouteTemplate = "swagger/{documentname}/swagger.json";
-});
-
-app.UseSwaggerUI(options =>
-{
-    options.SwaggerEndpoint($"/swagger/{version}/swagger.json", version);
-    options.RoutePrefix = "swagger";
-});
+app.UseCustomSwagger();
 
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapControllers();
+app.MapControllers(); 
+
+app.UseExceptionHandler();
 
 app.Run();
 

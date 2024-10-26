@@ -6,7 +6,7 @@
     <DockerPublishLocally>False</DockerPublishLocally>
     <ProjectGuid>280cd39c-1756-42b3-9177-fbb9be9e0727</ProjectGuid>
     <DockerLaunchAction>LaunchBrowser</DockerLaunchAction>
-    <DockerServiceUrl>{Scheme}://localhost:{ServicePort}/swagger</DockerServiceUrl>
+    <DockerServiceUrl>{Scheme}://localhost:{ServicePort}/api/swagger</DockerServiceUrl>
     <DockerServiceName>starter.webapi</DockerServiceName>
   </PropertyGroup>
   <ItemGroup>
